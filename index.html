@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>يقظة | نظام كشف نعاس السائق</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:#071b3a;        /* deep dashboard navy */
+    --blue:#0e4c92;        /* Mawhiba blue */
+    --blue-bright:#1f6fd6;
+    --cyan:#2fd4e6;        /* scanning / alive */
+    --amber:#f5a524;       /* yawn */
+    --red:#ff3b46;         /* drowsy alarm */
+    --ink:#eaf2ff;
+    --ink-dim:#9db4d6;
+    --panel:#0c2547;
+    --panel-2:#0a1f3d;
+    --line:rgba(120,160,220,.18);
+    --ok:#37d67a;
+    --shadow:0 20px 60px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 600px at 80% -10%, rgba(31,111,214,.22), transparent 60%),
+      radial-gradient(900px 500px at 0% 10%, rgba(47,212,230,.10), transparent 55%),
+      var(--navy);
+    color:var(--ink);
+    font-family:"Tajawal","Inter",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  html[dir="ltr"] body{font-family:"Inter","Tajawal",system-ui,sans-serif}
+  h1,h2,h3,.display{font-family:"Cairo","Inter",sans-serif}
+  html[dir="ltr"] h1,html[dir="ltr"] h2,html[dir="ltr"] h3{font-family:"Inter","Cairo",sans-serif}
+  a{color:inherit}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:16px clamp(16px,4vw,44px);
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:40;
+    background:linear-gradient(180deg, rgba(7,27,58,.92), rgba(7,27,58,.55));
+    backdrop-filter:blur(10px);
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:42px;height:42px;border-radius:12px;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--blue-bright),var(--cyan));
+    display:grid;place-items:center;box-shadow:0 8px 24px rgba(31,111,214,.5);
+    position:relative;
+  }
+  .logo::before{content:"";width:16px;height:16px;border-radius:50%;
+    border:3px solid #fff;box-shadow:0 0 0 3px rgba(255,255,255,.25) inset}
+  .logo::after{content:"";position:absolute;width:6px;height:6px;border-radius:50%;background:#fff}
+  .brand .name{font-weight:800;font-size:20px;letter-spacing:.3px}
+  .brand .sub{font-size:12px;color:var(--ink-dim);margin-top:-2px}
+  .maw{font-size:12px;color:var(--ink-dim)}
+  .maw b{color:var(--cyan)}
+  .lang-toggle{
+    display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;
+    font-size:13px;font-weight:600;background:rgba(255,255,255,.03)
+  }
+  .lang-toggle button{
+    background:transparent;color:var(--ink-dim);border:0;padding:7px 14px;cursor:pointer;
+    font-family:inherit;font-weight:700;transition:.2s
+  }
+  .lang-toggle button.active{background:var(--blue-bright);color:#fff}
+
+  /* ---------- hero / console ---------- */
+  .wrap{max-width:1220px;margin:0 auto;padding:clamp(20px,4vw,40px) clamp(16px,4vw,44px)}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;
+    color:var(--cyan);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+  .eyebrow::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--cyan);
+    box-shadow:0 0 12px var(--cyan);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .hero-title{font-size:clamp(30px,5vw,52px);line-height:1.05;font-weight:900;margin:0 0 12px}
+  .hero-title .accent{color:var(--cyan)}
+  .hero-sub{color:var(--ink-dim);font-size:clamp(15px,2vw,18px);max-width:640px;line-height:1.7;margin:0 0 26px}
+
+  .console{
+    display:grid;grid-template-columns:1.55fr 1fr;gap:20px;align-items:stretch;
+  }
+  @media(max-width:900px){.console{grid-template-columns:1fr}}
+
+  .stage{
+    position:relative;border-radius:22px;overflow:hidden;
+    background:#04101f;border:1px solid var(--line);box-shadow:var(--shadow);
+    min-height:340px;aspect-ratio:4/3;
+  }
+  .stage video,.stage canvas{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    transform:scaleX(-1);
+  }
+  .stage canvas{pointer-events:none}
+  .stage .placeholder{
+    position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;
+    text-align:center;color:var(--ink-dim);padding:24px
+  }
+  .stage .placeholder .big{font-size:46px}
+  .badge-cam{
+    position:absolute;top:14px;inset-inline-start:14px;z-index:5;
+    display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+    padding:7px 12px;border-radius:999px;background:rgba(4,16,31,.7);border:1px solid var(--line);
+    color:var(--ink-dim)
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ink-dim)}
+  .badge-cam.live .dot{background:var(--ok);box-shadow:0 0 10px var(--ok);animation:pulse 1.4s infinite}
+  .badge-cam.live{color:var(--ok)}
+
+  /* alarm overlay */
+  .alarm-overlay{
+    position:absolute;inset:0;z-index:8;pointer-events:none;opacity:0;transition:opacity .15s;
+    box-shadow:inset 0 0 0 6px var(--red), inset 0 0 90px rgba(255,59,70,.55);
+  }
+  .alarm-overlay.on{opacity:1;animation:flash .7s steps(2) infinite}
+  .alarm-overlay.yawn{box-shadow:inset 0 0 0 6px var(--amber), inset 0 0 90px rgba(245,165,36,.5)}
+  @keyframes flash{50%{opacity:.35}}
+  .alarm-banner{
+    position:absolute;z-index:9;inset-inline:0;bottom:0;padding:16px;
+    display:flex;align-items:center;justify-content:center;gap:12px;
+    font-family:"Cairo",sans-serif;font-weight:900;font-size:clamp(18px,3vw,26px);
+    color:#fff;background:linear-gradient(0deg,rgba(255,59,70,.95),rgba(255,59,70,0));
+    transform:translateY(100%);transition:transform .2s
+  }
+  .alarm-banner.on{transform:translateY(0)}
+  .alarm-banner.yawn{background:linear-gradient(0deg,rgba(245,165,36,.95),rgba(245,165,36,0))}
+
+  /* full-screen flash */
+  .screen-flash{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0}
+  .screen-flash.on{animation:screenFlash .6s infinite}
+  .screen-flash.red{background:rgba(255,42,52,.62)}
+  .screen-flash.amber{background:rgba(245,165,36,.5)}
+  @keyframes screenFlash{0%,45%{opacity:.7}50%,100%{opacity:0}}
+  @media(prefers-reduced-motion:reduce){.screen-flash.on{animation:none;opacity:.5}}
+
+  /* side panel */
+  .panel{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);border-radius:22px;padding:20px;
+    display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow)
+  }
+  .status-ring-wrap{display:flex;align-items:center;gap:16px}
+  .ring{position:relative;width:96px;height:96px;flex:0 0 auto}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+  .ring .val b{font-size:15px;font-weight:800;font-family:"Cairo"}
+  .status-text .st-main{font-size:19px;font-weight:800;font-family:"Cairo"}
+  .status-text .st-sub{font-size:13px;color:var(--ink-dim);margin-top:2px}
+
+  .meter{margin-top:2px}
+  .meter .lab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-dim);margin-bottom:6px}
+  .meter .lab b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .bar{height:10px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden;position:relative}
+  .bar > i{position:absolute;inset-inline-start:0;top:0;bottom:0;border-radius:999px;width:0%;transition:width .1s linear}
+  .bar.eyes > i{background:linear-gradient(90deg,var(--cyan),var(--blue-bright))}
+  .bar.mouth > i{background:linear-gradient(90deg,var(--blue-bright),var(--amber))}
+  .thr{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;opacity:.55}
+
+  .controls{display:flex;flex-direction:column;gap:12px;margin-top:2px}
+  .btn{
+    font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;border:0;border-radius:14px;
+    padding:14px 18px;display:flex;align-items:center;justify-content:center;gap:10px;transition:.2s
+  }
+  .btn-primary{background:linear-gradient(135deg,var(--blue-bright),var(--cyan));color:#04101f}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .btn-ghost{background:rgba(255,255,255,.05);color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{background:rgba(255,255,255,.1)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .slider-row{display:flex;flex-direction:column;gap:8px}
+  .slider-row .lab{display:flex;justify-content:space-between;font-size:13px;color:var(--ink-dim)}
+  .slider-row .lab b{color:var(--cyan);font-weight:800}
+  input[type=range]{width:100%;accent-color:var(--blue-bright)}
+  .hint{font-size:12px;color:var(--ink-dim);line-height:1.6}
+  .load-note{font-size:12.5px;color:var(--amber);display:none}
+  .stat-row{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{font-size:11.5px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.05);
+    border:1px solid var(--line);color:var(--ink-dim);font-weight:600}
+  .chip b{color:var(--ink)}
+
+  /* ---------- info sections ---------- */
+  section.info{margin-top:60px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .sec-num{font-family:"Cairo";font-weight:900;font-size:15px;color:var(--cyan);
+    border:1px solid var(--line);border-radius:10px;padding:4px 10px}
+  .sec-head h2{font-size:clamp(22px,3.4vw,30px);margin:0;font-weight:900}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:18px;padding:22px}
+  .card h3{margin:0 0 8px;font-size:18px}
+  .card p{margin:0;color:var(--ink-dim);line-height:1.75;font-size:14.5px}
+  .card .ic{font-size:26px;margin-bottom:10px}
+
+  .smart{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .smart .s{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .smart .s .k{font-family:"Cairo";font-weight:900;font-size:26px;color:var(--blue-bright);line-height:1}
+  .smart .s .t{font-weight:800;margin:6px 0 6px;font-size:15px}
+  .smart .s .d{color:var(--ink-dim);font-size:13.5px;line-height:1.6}
+  .fill{color:var(--amber);font-style:italic}
+
+  .flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;position:relative}
+  .step{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:18px;padding:20px;position:relative}
+  .step .n{font-family:"Cairo";font-weight:900;color:var(--cyan);font-size:14px;margin-bottom:8px}
+  .step h4{margin:0 0 6px;font-size:16px}
+  .step p{margin:0;color:var(--ink-dim);font-size:13.5px;line-height:1.65}
+
+  .team{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+  .member{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:16px;padding:18px;text-align:center}
+  .member .av{width:56px;height:56px;border-radius:50%;margin:0 auto 10px;
+    background:linear-gradient(135deg,var(--blue-bright),var(--cyan));display:grid;place-items:center;
+    font-family:"Cairo";font-weight:900;color:#04101f;font-size:22px}
+  .member .nm{font-weight:800;font-size:15px}
+  .member .rl{color:var(--ink-dim);font-size:13px;margin-top:2px}
+
+  footer{border-top:1px solid var(--line);margin-top:70px;padding:26px clamp(16px,4vw,44px);
+    color:var(--ink-dim);font-size:13px;text-align:center}
+
+  .en{display:none}
+  html[lang="en"] .ar{display:none}
+  html[lang="en"] .en{display:inline}
+  html[lang="en"] .en.block{display:block}
+</style>
+</head>
+<body>
+
+<div class="screen-flash" id="screenFlash"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"></div>
+    <div>
+      <div class="name">يقظة <span class="en">Yaqadha</span></div>
+      <div class="sub"><span class="ar">نظام كشف نعاس السائق</span><span class="en">Driver Drowsiness Detection</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:18px">
+    <div class="maw"><span class="ar">مشروع</span> <b>موهبة</b></div>
+    <div class="lang-toggle">
+      <button id="btn-ar" class="active" onclick="setLang('ar')">عربي</button>
+      <button id="btn-en" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="eyebrow"><span class="ar">كشف مباشر بالكاميرا</span><span class="en">Live camera detection</span></div>
+  <h1 class="hero-title">
+    <span class="ar">ينبّهك قبل أن <span class="accent">يغلبك النعاس</span></span>
+    <span class="en">Alerts you before <span class="accent">drowsiness wins</span></span>
+  </h1>
+  <p class="hero-sub">
+    <span class="ar">يراقب النظام وجه السائق لحظياً، ويطلق تنبيهاً صوتياً ومرئياً عند إغلاق العينين لفترة طويلة أو عند التثاؤب — لحظة يفقد فيها السائق تركيزه على الطريق.</span>
+    <span class="en block">The system watches the driver's face in real time and raises a sound + visual alert when the eyes stay closed too long or a yawn is detected — the moment focus slips off the road.</span>
+  </p>
+
+  <div class="console">
+    <!-- camera stage -->
+    <div class="stage" id="stage">
+      <div class="badge-cam" id="camBadge"><span class="dot"></span><span class="ar">الكاميرا متوقفة</span><span class="en">Camera off</span></div>
+      <video id="video" autoplay muted playsinline style="display:none"></video>
+      <canvas id="overlay"></canvas>
+      <div class="placeholder" id="placeholder">
+        <div class="big">📷</div>
+        <div><span class="ar">اضغط «تشغيل الكاميرا» لبدء الكشف</span><span class="en">Press "Start camera" to begin detection</span></div>
+      </div>
+      <div class="alarm-overlay" id="alarmOverlay"></div>
+      <div class="alarm-banner" id="alarmBanner"></div>
+    </div>
+
+    <!-- status panel -->
+    <div class="panel">
+      <div class="status-ring-wrap">
+        <div class="ring">
+          <svg width="96" height="96" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/>
+            <circle id="ringArc" cx="48" cy="48" r="42" fill="none" stroke="var(--ok)" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264"/>
+          </svg>
+          <div class="val"><b id="ringLabel"><span class="ar">جاهز</span><span class="en">Ready</span></b></div>
+        </div>
+        <div class="status-text">
+          <div class="st-main" id="stMain"><span class="ar">في وضع الاستعداد</span><span class="en">Standing by</span></div>
+          <div class="st-sub" id="stSub"><span class="ar">لم يبدأ الكشف بعد</span><span class="en">Detection not started</span></div>
+        </div>
+      </div>
+
+      <div class="meter">
+        <div class="lab"><span><span class="ar">انفتاح العين</span><span class="en">Eye openness</span></span><b id="earVal">—</b></div>
+        <div class="bar eyes"><i id="earBar"></i><span class="thr" id="earThr" style="inset-inline-start:33%"></span></div>
+      </div>
+      <div class="meter">
+        <div class="lab"><span><span class="ar">فتح الفم (تثاؤب)</span><span class="en">Mouth open (yawn)</span></span><b id="marVal">—</b></div>
+        <div class="bar mouth"><i id="marBar"></i><span class="thr" id="marThr" style="inset-inline-start:60%"></span></div>
+      </div>
+
+      <div class="controls">
+        <div class="slider-row">
+          <div class="lab"><span><span class="ar">تنبيه إغلاق العينين بعد</span><span class="en">Eyes-closed alert after</span></span><b><span id="thrVal">10</span> <span class="ar">ث</span><span class="en">s</span></b></div>
+          <input type="range" id="thrSlider" min="1" max="10" step="0.5" value="10" oninput="updateThreshold()" />
+          <div class="hint"><span class="ar">💡 للعرض المباشر قلّلها إلى ٢ ثانية عشان يظهر التنبيه بسرعة.</span><span class="en">💡 For a live demo, lower this to ~2s so the alert triggers quickly.</span></div>
+        </div>
+        <button class="btn btn-primary" id="startBtn" onclick="start()">▶ <span class="ar">تشغيل الكاميرا</span><span class="en">Start camera</span></button>
+        <button class="btn btn-ghost" id="stopBtn" onclick="stop()" disabled>■ <span class="ar">إيقاف</span><span class="en">Stop</span></button>
+        <button class="btn btn-ghost" onclick="testAlarm()">🔊 <span class="ar">اختبار التنبيه</span><span class="en">Test alarm</span></button>
+        <div class="load-note" id="loadNote"><span class="ar">جارٍ تحميل نموذج الكشف…</span><span class="en">Loading detection model…</span></div>
+        <div class="stat-row">
+          <span class="chip"><span class="ar">وجه:</span><span class="en">Face:</span> <b id="faceStat">—</b></span>
+          <span class="chip">FPS <b id="fpsStat">—</b></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PROBLEM ===== -->
+  <section class="info">
+    <div class="sec-head"><span class="sec-num">01</span><h2><span class="ar">المشكلة</span><span class="en">The problem</span></h2></div>
+    <div class="cards">
+      <div class="card">
+        <div class="ic">🚗</div>
+        <h3><span class="ar">النعاس قاتل صامت</span><span class="en">Drowsiness is a silent killer</span></h3>
+        <p><span class="ar">النعاس أثناء القيادة سبب رئيسي لحوادث الطرق، وغالباً لا ينتبه السائق أنه على وشك النوم إلا بعد فوات الأوان.</span><span class="en">Drowsy driving is a leading cause of road crashes, and drivers often don't notice they're about to fall asleep until it's too late.</span></p>
+      </div>
+      <div class="card">
+        <div class="ic">⏱️</div>
+        <h3><span class="ar">ثوانٍ تصنع الفرق</span><span class="en">Seconds make the difference</span></h3>
+        <p><span class="ar">إغلاق العينين لثوانٍ قليلة على سرعة عالية يعني قطع مسافة كبيرة بدون وعي — تنبيه مبكر ينقذ حياة.</span><span class="en">Closing your eyes for a few seconds at speed means covering a long distance unaware — an early alert saves lives.</span></p>
+      </div>
+      <div class="card">
+        <div class="ic">🔔</div>
+        <h3><span class="ar">لا يوجد تنبيه في السيارة</span><span class="en">Cars rarely warn you</span></h3>
+        <p><span class="ar">معظم السيارات لا تحتوي على نظام يراقب حالة السائق نفسه — نحن نعالج هذه الفجوة بحل بسيط بالكاميرا.</span><span class="en">Most cars have no system watching the driver themselves — we close that gap with a simple camera-based solution.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SMART GOALS ===== -->
+  <section class="info">
+    <div class="sec-head"><span class="sec-num">02</span><h2><span class="ar">أهداف SMART</span><span class="en">SMART goals</span></h2></div>
+    <div class="smart">
+      <div class="s"><div class="k">S</div><div class="t"><span class="ar">محدد</span><span class="en">Specific</span></div><div class="d"><span class="ar">بناء نظام يكشف نعاس السائق عبر الكاميرا برصد إغلاق العينين والتثاؤب وإطلاق تنبيه فوري.</span><span class="en">Build a camera-based system that detects driver drowsiness by spotting closed eyes and yawns, then fires an instant alert.</span></div></div>
+      <div class="s"><div class="k">M</div><div class="t"><span class="ar">قابل للقياس</span><span class="en">Measurable</span></div><div class="d"><span class="ar">دقة كشف لا تقل عن ٩٠٪، مع إطلاق التنبيه خلال ثوانٍ من رصد النعاس.</span><span class="en">Detection accuracy of at least 90%, with the alert firing within seconds of drowsiness.</span></div></div>
+      <div class="s"><div class="k">A</div><div class="t"><span class="ar">قابل للتحقيق</span><span class="en">Achievable</span></div><div class="d"><span class="ar">باستخدام كاميرا عادية ونماذج تعلّم آلي تعمل داخل المتصفح، بدون أجهزة مكلفة.</span><span class="en">Using an ordinary camera and machine-learning models that run in the browser — no costly hardware.</span></div></div>
+      <div class="s"><div class="k">R</div><div class="t"><span class="ar">واقعي/مرتبط</span><span class="en">Relevant</span></div><div class="d"><span class="ar">يعالج النعاس، أحد أبرز أسباب حوادث الطرق، ويدعم سلامة السائقين.</span><span class="en">Tackles drowsiness — a leading cause of road crashes — and supports driver safety.</span></div></div>
+      <div class="s"><div class="k">T</div><div class="t"><span class="ar">محدد زمنياً</span><span class="en">Time-bound</span></div><div class="d"><span class="ar">إنجاز النموذج والموقع وعرضهما جاهزين خلال مدة البرنامج.</span><span class="en">Deliver a working model and website, ready to present, within the program period.</span></div></div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section class="info">
+    <div class="sec-head"><span class="sec-num">03</span><h2><span class="ar">كيف يعمل؟</span><span class="en">How it works</span></h2></div>
+    <div class="flow">
+      <div class="step"><div class="n">01</div><h4><span class="ar">التقاط الوجه</span><span class="en">Capture face</span></h4><p><span class="ar">تلتقط الكاميرا وجه السائق لحظياً داخل المتصفح.</span><span class="en">The camera captures the driver's face live in the browser.</span></p></div>
+      <div class="step"><div class="n">02</div><h4><span class="ar">تحديد النقاط</span><span class="en">Landmark the face</span></h4><p><span class="ar">يرسم نموذج FaceMesh ٤٦٨ نقطة على الوجه، منها العينان والفم.</span><span class="en">A FaceMesh model plots 468 facial points, including eyes and mouth.</span></p></div>
+      <div class="step"><div class="n">03</div><h4><span class="ar">حساب المؤشرات</span><span class="en">Compute the signals</span></h4><p><span class="ar">نحسب نسبة انفتاح العين (EAR) ونسبة فتح الفم (MAR) في كل لقطة.</span><span class="en">We compute the Eye (EAR) and Mouth (MAR) aspect ratios each frame.</span></p></div>
+      <div class="step"><div class="n">04</div><h4><span class="ar">إطلاق التنبيه</span><span class="en">Raise the alert</span></h4><p><span class="ar">إذا أُغلقت العينان لمدة تتجاوز الحد أو ظهر تثاؤب، يعمل تنبيه صوتي ومرئي.</span><span class="en">If eyes stay closed past the limit or a yawn appears, a sound + visual alert fires.</span></p></div>
+    </div>
+  </section>
+
+  <!-- ===== TEAM ===== -->
+  <section class="info">
+    <div class="sec-head"><span class="sec-num">04</span><h2><span class="ar">الفريق</span><span class="en">The team</span></h2></div>
+    <div class="team">
+      <div class="member"><div class="av">ر</div><div class="nm">رغد العبيد</div></div>
+      <div class="member"><div class="av">ج</div><div class="nm">جنى قاسم</div></div>
+      <div class="member"><div class="av">ن</div><div class="nm">نورا البدر</div></div>
+      <div class="member"><div class="av">ن</div><div class="nm">نرجس آل خاتم</div></div>
+      <div class="member"><div class="av">ش</div><div class="nm">شهد الزاير</div></div>
+      <div class="member"><div class="av">ب</div><div class="nm">بسمة الدرويش</div></div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <span class="ar">يقظة — نظام كشف نعاس السائق · مشروع موهبة · جميع المعالجة تتم محلياً داخل متصفحك.</span>
+  <span class="en">Yaqadha — Driver Drowsiness Detection · A Mawhiba project · All processing happens locally in your browser.</span>
+</footer>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/vision_bundle.mjs";
+
+const $ = id => document.getElementById(id);
+const video = $("video"), overlay = $("overlay"), octx = overlay.getContext("2d");
+
+// ---- tunable thresholds ----
+const EAR_CLOSED = 0.20;   // below this = eye considered closed
+const MAR_YAWN   = 0.60;   // above this = mouth wide (yawn)
+const YAWN_HOLD_MS = 350;  // mouth must stay open this long to count as a yawn
+const YAWN_ALERT_MS = 2200;// how long the yawn banner stays up
+let drowsyThresholdMs = 10000; // eyes-closed duration before alarm (slider)
+
+let faceLandmarker=null, stream=null, running=false, lastVideoTime=-1;
+let eyesClosedSince=null, yawnOpenSince=null, yawnUntil=0;
+let alarmDrowsy=false, alarmYawn=false;
+let frames=0, fpsT=performance.now();
+
+// ---------- MediaPipe indices ----------
+const RE=[33,160,158,133,153,144];   // right eye: h1,v1a,v2a,h2,v2b,v1b
+const LE=[362,385,387,263,373,380];  // left eye
+const M_TOP=13, M_BOT=14, M_L=78, M_R=308;
+
+const dist=(a,b,W,H)=>Math.hypot((a.x-b.x)*W,(a.y-b.y)*H);
+function ear(p,i,W,H){
+  const v1=dist(p[i[1]],p[i[5]],W,H), v2=dist(p[i[2]],p[i[4]],W,H), h=dist(p[i[0]],p[i[3]],W,H);
+  return h===0?0:(v1+v2)/(2*h);
+}
+
+// ---------- audio alarm (continuous siren) ----------
+let audioCtx=null;
+let sirenOsc=null, sirenGain=null, sirenLFO=null, sirenLFOGain=null, sirenType=null;
+function ensureAudio(){ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==="suspended") audioCtx.resume(); }
+function startSiren(type){
+  ensureAudio(); if(sirenOsc) return;
+  const t=audioCtx.currentTime;
+  sirenOsc=audioCtx.createOscillator();
+  sirenGain=audioCtx.createGain();
+  sirenLFO=audioCtx.createOscillator();
+  sirenLFOGain=audioCtx.createGain();
+  sirenOsc.type="sawtooth";                         // harsh, siren-like
+  sirenOsc.frequency.value = type==="drowsy"?760:560;
+  sirenLFO.type="sine";
+  sirenLFO.frequency.value = type==="drowsy"?5:3;    // wail speed
+  sirenLFOGain.gain.value  = type==="drowsy"?240:120;// wail depth
+  sirenLFO.connect(sirenLFOGain); sirenLFOGain.connect(sirenOsc.frequency);
+  sirenGain.gain.setValueAtTime(0.0001,t);
+  sirenGain.gain.exponentialRampToValueAtTime(0.38,t+0.05); // loud
+  sirenOsc.connect(sirenGain); sirenGain.connect(audioCtx.destination);
+  sirenOsc.start(t); sirenLFO.start(t);
+}
+function stopSiren(){
+  if(!sirenOsc) return;
+  const t=audioCtx.currentTime;
+  try{ sirenGain.gain.cancelScheduledValues(t); sirenGain.gain.setValueAtTime(sirenGain.gain.value,t);
+       sirenGain.gain.exponentialRampToValueAtTime(0.0001,t+0.1); }catch(e){}
+  try{ sirenOsc.stop(t+0.12); sirenLFO.stop(t+0.12); }catch(e){}
+  sirenOsc=null; sirenLFO=null; sirenGain=null; sirenLFOGain=null;
+}
+function setSiren(type){ if(type===sirenType) return; stopSiren(); sirenType=type; if(type) startSiren(type); }
+
+// ---------- spoken voice alert: "افتح عينيك" ----------
+let speechTimer=null;
+function startSpeech(){
+  if(!("speechSynthesis" in window) || speechTimer) return;
+  const say=()=>{
+    try{
+      speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance("انتبه، افتح عينيك");
+      u.lang="ar-SA"; u.rate=1; u.pitch=1; u.volume=1;
+      // duck the siren while the voice speaks, then bring it back
+      if(sirenGain){ try{ sirenGain.gain.setTargetAtTime(0.06,audioCtx.currentTime,0.03); }catch(e){} }
+      u.onend=()=>{ if(sirenGain){ try{ sirenGain.gain.setTargetAtTime(0.38,audioCtx.currentTime,0.08); }catch(e){} } };
+      speechSynthesis.speak(u);
+    }catch(e){}
+  };
+  say();
+  speechTimer=setInterval(say,3200);
+}
+function stopSpeech(){
+  if(speechTimer){ clearInterval(speechTimer); speechTimer=null; }
+  if("speechSynthesis" in window) try{ speechSynthesis.cancel(); }catch(e){}
+}
+
+// ---------- lifecycle ----------
+window.start = async function(){
+  ensureAudio();
+  $("startBtn").disabled=true;
+  $("loadNote").style.display="block";
+  try{
+    if(!faceLandmarker){
+      const fileset=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm");
+      const MODEL="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+      const opts=d=>({baseOptions:{modelAssetPath:MODEL,delegate:d},runningMode:"VIDEO",numFaces:1});
+      try{ faceLandmarker=await FaceLandmarker.createFromOptions(fileset,opts("GPU")); }
+      catch(gpuErr){ console.warn("GPU delegate failed, falling back to CPU:",gpuErr);
+                     faceLandmarker=await FaceLandmarker.createFromOptions(fileset,opts("CPU")); }
+    }
+  }catch(e){
+    $("loadNote").textContent = (document.documentElement.lang==="en")
+      ? "Failed to load model — check the internet connection." : "تعذّر تحميل النموذج — تأكد من الاتصال بالإنترنت.";
+    $("startBtn").disabled=false; console.error(e); return;
+  }
+  $("loadNote").style.display="none";
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:960,facingMode:"user"},audio:false});
+  }catch(e){
+    alert(document.documentElement.lang==="en" ? "Could not access the camera. Allow camera permission and try again." : "تعذّر الوصول إلى الكاميرا. اسمح بإذن الكاميرا ثم حاول مرة أخرى.");
+    $("startBtn").disabled=false; return;
+  }
+  video.srcObject=stream; video.style.display="block"; $("placeholder").style.display="none";
+  await video.play();
+  overlay.width=video.videoWidth; overlay.height=video.videoHeight;
+  $("camBadge").classList.add("live");
+  $("camBadge").querySelector(".ar").textContent="مباشر"; $("camBadge").querySelector(".en").textContent="Live";
+  $("stopBtn").disabled=false;
+  running=true; loop();
+};
+
+window.stop = function(){
+  running=false;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
+  video.style.display="none"; $("placeholder").style.display="grid";
+  clearAlarms(); octx.clearRect(0,0,overlay.width,overlay.height);
+  $("camBadge").classList.remove("live");
+  $("camBadge").querySelector(".ar").textContent="الكاميرا متوقفة"; $("camBadge").querySelector(".en").textContent="Camera off";
+  $("startBtn").disabled=false; $("stopBtn").disabled=true;
+  setStatus("ready"); $("earVal").textContent="—"; $("marVal").textContent="—";
+  $("earBar").style.width="0%"; $("marBar").style.width="0%";
+  $("faceStat").textContent="—"; $("fpsStat").textContent="—";
+};
+
+window.testAlarm = function(){
+  ensureAudio();
+  alarmDrowsy=true; refreshAlarm();
+  setTimeout(()=>{ alarmDrowsy=false; refreshAlarm(); },2500);
+};
+
+window.updateThreshold = function(){
+  const v=parseFloat($("thrSlider").value);
+  drowsyThresholdMs=v*1000; $("thrVal").textContent=v;
+};
+
+// ---------- main loop ----------
+function loop(){
+  if(!running) return;
+  const now=performance.now();
+  if(video.currentTime!==lastVideoTime){
+    lastVideoTime=video.currentTime;
+    const res=faceLandmarker.detectForVideo(video,now);
+    const W=overlay.width,H=overlay.height;
+    octx.clearRect(0,0,W,H);
+    if(res.faceLandmarks&&res.faceLandmarks.length){
+      const p=res.faceLandmarks[0];
+      $("faceStat").textContent=(document.documentElement.lang==="en")?"detected":"مكتشف";
+      const earL=ear(p,LE,W,H), earR=ear(p,RE,W,H), EAR=(earL+earR)/2;
+      const MAR=dist(p[M_TOP],p[M_BOT],W,H)/dist(p[M_L],p[M_R],W,H);
+      updateMeters(EAR,MAR);
+      drawPoints(p,W,H,EAR,MAR);
+      evaluate(EAR,MAR,now);
+    }else{
+      $("faceStat").textContent=(document.documentElement.lang==="en")?"none":"لا يوجد";
+      eyesClosedSince=null; setStatus("noface");
+      if(alarmDrowsy){alarmDrowsy=false;refreshAlarm();}
+    }
+  }
+  frames++;
+  if(now-fpsT>=1000){$("fpsStat").textContent=frames;frames=0;fpsT=now;}
+  requestAnimationFrame(loop);
+}
+
+function evaluate(EAR,MAR,now){
+  // --- eyes closed ---
+  if(EAR<EAR_CLOSED){
+    if(eyesClosedSince===null) eyesClosedSince=now;
+    const held=now-eyesClosedSince;
+    const remain=Math.max(0,(drowsyThresholdMs-held)/1000);
+    if(held>=drowsyThresholdMs){
+      if(!alarmDrowsy){alarmDrowsy=true;refreshAlarm();}
+      setStatus("drowsy");
+    }else{
+      setStatus("closing",remain);
+    }
+  }else{
+    eyesClosedSince=null;
+    if(alarmDrowsy){alarmDrowsy=false;refreshAlarm();}
+  }
+  // --- yawn ---
+  if(MAR>MAR_YAWN){
+    if(yawnOpenSince===null) yawnOpenSince=now;
+    if(now-yawnOpenSince>=YAWN_HOLD_MS){ yawnUntil=now+YAWN_ALERT_MS; }
+  }else{ yawnOpenSince=null; }
+  const yawnNow = now<yawnUntil;
+  if(yawnNow!==alarmYawn){ alarmYawn=yawnNow; refreshAlarm(); }
+  if(yawnNow && !alarmDrowsy) setStatus("yawn");
+  if(!alarmDrowsy && !yawnNow && EAR>=EAR_CLOSED) setStatus("ok");
+}
+
+// ---------- alarm state ----------
+function refreshAlarm(){
+  const ov=$("alarmOverlay"), bn=$("alarmBanner"), sf=$("screenFlash");
+  if(alarmDrowsy){
+    ov.className="alarm-overlay on"; bn.className="alarm-banner on";
+    sf.className="screen-flash red on";
+    bn.innerHTML=(document.documentElement.lang==="en")?"⚠ WAKE UP — EYES CLOSED":"⚠ انتبه — عيناك مغلقتان";
+    setSiren("drowsy"); startSpeech();
+  }else if(alarmYawn){
+    ov.className="alarm-overlay yawn on"; bn.className="alarm-banner yawn on";
+    sf.className="screen-flash amber on";
+    bn.innerHTML=(document.documentElement.lang==="en")?"😮 Yawn detected — take a break":"😮 تم رصد تثاؤب — خذ استراحة";
+    setSiren("yawn"); stopSpeech();
+  }else{
+    ov.className="alarm-overlay"; bn.className="alarm-banner"; sf.className="screen-flash";
+    setSiren(null); stopSpeech();
+  }
+}
+function clearAlarms(){alarmDrowsy=false;alarmYawn=false;yawnUntil=0;eyesClosedSince=null;refreshAlarm();}
+
+// ---------- UI meters + status ----------
+function updateMeters(EAR,MAR){
+  $("earVal").textContent=EAR.toFixed(2);
+  $("marVal").textContent=MAR.toFixed(2);
+  $("earBar").style.width=Math.min(100,(EAR/0.45)*100).toFixed(0)+"%";
+  $("marBar").style.width=Math.min(100,(MAR/1.0)*100).toFixed(0)+"%";
+}
+const RING=264;
+function setStatus(state,remain){
+  const arc=$("ringArc"), main=$("stMain"), sub=$("stSub"), rl=$("ringLabel");
+  const en=document.documentElement.lang==="en";
+  const set=(m_ar,m_en,s_ar,s_en,color,frac,lab_ar,lab_en)=>{
+    arc.style.stroke=color; arc.style.strokeDashoffset=RING*(1-frac);
+    main.querySelector(".ar").textContent=m_ar; main.querySelector(".en").textContent=m_en;
+    sub.querySelector(".ar").textContent=s_ar; sub.querySelector(".en").textContent=s_en;
+    rl.querySelector(".ar").textContent=lab_ar; rl.querySelector(".en").textContent=lab_en;
+  };
+  switch(state){
+    case "ready": set("في وضع الاستعداد","Standing by","لم يبدأ الكشف بعد","Detection not started","var(--ok)",0,"جاهز","Ready");break;
+    case "ok": set("السائق متيقّظ","Driver alert","كل المؤشرات طبيعية","All signals normal","var(--ok)",1,"سليم","OK");break;
+    case "noface": set("لا يوجد وجه","No face","وجّه الكاميرا نحو وجهك","Point the camera at your face","var(--ink-dim)",0,"—","—");break;
+    case "closing": {
+      const r=remain!==undefined?remain.toFixed(1):"";
+      set("العينان مغلقتان","Eyes closing","تنبيه خلال "+r+" ث","Alert in "+r+"s","var(--amber)",
+        1-(remain*1000/drowsyThresholdMs), r, r);break;
+    }
+    case "yawn": set("تم رصد تثاؤب","Yawn detected","علامة تعب مبكرة","Early fatigue sign","var(--amber)",.6,"تثاؤب","Yawn");break;
+    case "drowsy": set("خطر — نعاس!","Danger — drowsy!","التنبيه فعّال الآن","Alert is firing now","var(--red)",1,"خطر","!");break;
+  }
+}
+
+// ---------- draw landmarks ----------
+function drawPoints(p,W,H,EAR,MAR){
+  const eyeColor = EAR<EAR_CLOSED ? "#ff3b46" : "#2fd4e6";
+  const mouthColor = MAR>MAR_YAWN ? "#f5a524" : "#1f6fd6";
+  octx.lineWidth=2;
+  const poly=(idx,color)=>{
+    octx.strokeStyle=color; octx.fillStyle=color+"22"; octx.beginPath();
+    idx.forEach((i,k)=>{const pt=p[i];const x=pt.x*W,y=pt.y*H;k?octx.lineTo(x,y):octx.moveTo(x,y);});
+    octx.closePath(); octx.stroke(); octx.fill();
+    idx.forEach(i=>{const pt=p[i];octx.fillStyle=color;octx.beginPath();octx.arc(pt.x*W,pt.y*H,2.5,0,7);octx.fill();});
+  };
+  poly(LE,eyeColor); poly(RE,eyeColor);
+  poly([M_TOP,M_R,M_BOT,M_L],mouthColor);
+}
+
+// ---------- language ----------
+window.setLang = function(l){
+  document.documentElement.lang=l;
+  document.documentElement.dir = l==="ar" ? "rtl":"ltr";
+  $("btn-ar").classList.toggle("active",l==="ar");
+  $("btn-en").classList.toggle("active",l==="en");
+};
+</script>
+</body>
+</html>
